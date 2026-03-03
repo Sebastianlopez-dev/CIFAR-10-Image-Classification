@@ -20,6 +20,10 @@
             </div>
 
             <div class="class-tags">
+                <p class="upload-prompt"
+                    style="text-align: center; font-weight: 500; margin-bottom: 10px; color: var(--text-muted);">Please
+                    upload a
+                    picture of one of the following objects:</p>
                 <div class="tags-row tags-row-4">
                     <span class="tag">✈️ Airplane</span>
                     <span class="tag">🚗 Automobile</span>
@@ -48,6 +52,9 @@
                         <option value="transfer" {% if selected_model=='transfer' %}selected{% endif %}>MobileNetV2
                             (Transfer Learning)</option>
                     </select>
+                    <p id="modelSizeInfo" class="model-size-info"
+                        style="font-size: 0.85em; color: var(--text-muted); margin-top: 8px; font-weight: 500; text-align: center;">
+                    </p>
                 </div>
 
                 <div class="dropzone" id="dropzone">
@@ -157,6 +164,21 @@
             submitBtn.disabled = true;
             submitBtn.innerHTML = '<span class="btn-icon">⏳</span> Classifying...';
         });
+
+        // ─── Model Size Info ─────────────────────────────
+        const modelChoice = document.getElementById('modelChoice');
+        const modelSizeInfo = document.getElementById('modelSizeInfo');
+
+        function updateSizeInfo() {
+            if (modelChoice.value === 'transfer') {
+                modelSizeInfo.innerHTML = "ℹ️ Note: This model requires an image size of exactly <strong>96x96 pixels</strong>.";
+            } else {
+                modelSizeInfo.innerHTML = "ℹ️ Note: This model requires an image size of exactly <strong>32x32 pixels</strong>.";
+            }
+        }
+
+        modelChoice.addEventListener('change', updateSizeInfo);
+        updateSizeInfo();
     </script>
 </body>
 

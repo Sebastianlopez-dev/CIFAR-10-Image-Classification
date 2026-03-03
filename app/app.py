@@ -68,24 +68,33 @@ def load_all_models():
         default_model_name = None
 
 
-def preprocess_image(image_bytes):
+def preprocess_image(image_bytes, target_size=(32, 32)):
     """
     Preprocess a single uploaded image for prediction.
 
     Steps:
     1. Open and convert to RGB
-    2. Resize to 32x32 (CIFAR-10 input size)
+    2. Resize to target_size (32x32 for CNN or 96x96 for MobileNetV2)
     3. Normalize pixel values to [0, 1]
     4. Add batch dimension
 
     Args:
         image_bytes: Raw image bytes from upload.
+        target_size: The expected resolution tuple (width, height).
 
     Returns:
-        numpy array of shape (1, 32, 32, 3), float32, normalized.
+        numpy array of shape (1, target_size[0], target_size[1], 3), float32, normalized.
     """
     img = Image.open(io.BytesIO(image_bytes)).convert('RGB')
-    img = img.resize((32, 32))
+    
+    if img.size != target_size:
+        raise ValueError(
+            f"Please check the size of your image! The selected model strictly requires "
+            f"an image size of {target_size[0]}x{target_size[1]} pixels, but your image "
+            f"is {img.size[0]}x{img.size[1]} pixels. Kindly resize your image or try a different model."
+        )
+        
+    img = img.resize(target_size)
     img_array = img_to_array(img) / 255.0
     img_array = np.expand_dims(img_array, axis=0)
     return img_array
@@ -152,7 +161,8 @@ def predict():
 
         try:
             image_bytes = file.read()
-            img_array = preprocess_image(image_bytes)
+            target_size = (96, 96) if model_choice == 'transfer' else (32, 32)
+            img_array = preprocess_image(image_bytes, target_size=target_size)
             predictions = get_predictions(img_array, model_choice, top_n=10)
 
             all_results.append({
@@ -192,7 +202,8 @@ def api_predict():
             continue
         try:
             image_bytes = file.read()
-            img_array = preprocess_image(image_bytes)
+            target_size = (96, 96) if model_choice == 'transfer' else (32, 32)
+            img_array = preprocess_image(image_bytes, target_size=target_size)
             predictions = get_predictions(img_array, model_choice, top_n=10)
             all_results.append({
                 'filename': file.filename,
