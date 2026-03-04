@@ -218,10 +218,12 @@ def api_predict():
     return jsonify({'model': current_model_name, 'results': all_results})
 
 
+# ── Load models at import time (needed for Flask CLI / Hugging Face) ─
+load_all_models()
+
 # ── Main ────────────────────────────────────────────────────────
 
 if __name__ == '__main__':
-    load_all_models()
     port = int(os.environ.get('PORT', 5001))
     print(f"\n 🚀 Starting Flask app at http://localhost:{port}")
     print(f"   Available Models: {', '.join([m['name'] for m in models.values()])}")
