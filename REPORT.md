@@ -1,32 +1,49 @@
-# 📊 Project Report: CIFAR-10 Image Classification with CNN
+# 📊 Project Report: CIFAR-10 Image Classification with Deep Learning
 
 **Author:** Sebastian Lopez  
-**Date:** February 2026  
+**Date:** February - March 2026  
 **Environment:** Python 3.10 | TensorFlow 2.18.1 | Keras 3.6.0  
 **Dataset:** CIFAR-10 (60,000 images, 10 classes, 32×32 RGB)
 
 ---
 
-## 1. Introduction
+## 1. Introduction and Project Scope
 
-In this project, I built and evaluated two deep learning models for classifying images from the CIFAR-10 dataset into 10 categories: airplane, automobile, bird, cat, deer, dog, frog, horse, ship, and truck.
+In this project, I built and evaluated several deep learning models for classifying images from the CIFAR-10 dataset into 10 categories: airplane, automobile, bird, cat, deer, dog, frog, horse, ship, and truck. 
+
+My approach evolved through a structured sequence of experiments, mapping my journey through the following Jupyter Notebooks:
+1. `1. CIFAR10_Image_Classification_CNN.ipynb`
+2. `3. Trained_Transfer_Learning_Colab_Models.ipynb`
+3. `4.1 Model_Comparison_easy.ipynb`
+4. `4.2 Model_Comparison_difficult.ipynb`
 
 **Models developed:**
-1. **Custom CNN** — A purpose-built convolutional neural network
-2. **MobileNetV2 Transfer Learning** — Leveraging pretrained ImageNet features
+1. **Custom CNN** — A purpose-built convolutional neural network tailored to the native image resolution.
+2. **Transfer Learning Models** — Leveraging pretrained ImageNet features (MobileNetV2 and ResNet50).
+
+### 1.1 Data Analysis Before Processing
+
+Before beginning the modeling process, it was crucial to understand the inherent biases and limitations of the CIFAR-10 dataset itself. 
+
+The dataset contains exactly 6,000 images for each of the 10 classes, ensuring perfectly balanced training.
+
+![Class Distribution](outputs/class_distribution.png)
+*Figure 1. The perfectly balanced class distribution of CIFAR-10.*
+
+However, I identified significant geographic, cultural, and technical biases within this data that impact "real world" model reliability (further discussed in Section 8).
 
 ---
 
 ## 2. Data Preprocessing
 
 ### 2.1 Normalization
-All pixel values were scaled from [0, 255] to [0.0, 1.0] by dividing by 255. This ensures consistent gradient magnitudes during backpropagation.
+All pixel values were scaled from [0, 255] to [0.0, 1.0]. This ensures consistent gradient magnitudes during backpropagation.
 
 ### 2.2 Label Encoding
 Integer labels (0–9) were one-hot encoded into 10-dimensional binary vectors using `keras.utils.to_categorical()`.
 
 ### 2.3 Data Augmentation (Custom CNN only)
-Applied real-time augmentation during training to reduce overfitting:
+To prevent the model from immediately overfitting on the relatively small dataset, I applied real-time data augmentation. By introducing random rotations, shifts, and zooms, I forced my Custom CNN to learn invariant features rather than memorizing the training set:
 
 | Augmentation       | Range       |
 |:-------------------|:------------|
@@ -35,23 +52,27 @@ Applied real-time augmentation during training to reduce overfitting:
 | Horizontal flip    | Random      |
 | Zoom               | ±10%        |
 
+![Augmentation Examples](outputs/augmentation_examples.png)
+*Figure 2. Sample results of my real-time data augmentation pipeline used solely for the Custom CNN.*
+
 ### 2.4 Dataset Split
 - **Training:** 45,000 images (90% of train set)
 - **Validation:** 5,000 images (10% of train set)
 - **Test:** 10,000 images (held-out)
 
 > **📝 Note on Challenges Encountered - Test Image Resizing:** 
-> When preparing custom images from the `test_images/` directory outside the CIFAR-10 dataset, I encountered input shape mismatch errors. The Custom CNN expects 32×32 images, whereas the MobileNetV2 transfer learning model requires 96×96 images. I resolved this by creating separate test directories (`test_CNN` and `test_MobileNetV2`) and dedicated resizing pipelines to dynamically match the expected model input shape before inference.
+> When preparing custom images from the `test_images/` directory outside the CIFAR-10 dataset, I encountered input shape mismatch errors. The Custom CNN expects native 32×32 images, whereas the Transfer Learning models require 96×96 images. I resolved this by dynamically resizing images based on the expected model input shape before inference.
 
 ---
 
-## 3. Model Architectures
+## 3. Model Architectures & Development
 
 ### 3.1 Custom CNN
+*(Reference: `1. CIFAR10_Image_Classification_CNN.ipynb`)*
 
-A 3-block convolutional network designed specifically for 32×32 CIFAR-10 images:
+I engineered a 3-block convolutional network specifically tailored for the native 32×32 resolution of the CIFAR-10 images:
 
-```
+```text
 Block 1: Conv2D(32) × 2 → BatchNorm → MaxPool(2×2) → Dropout(0.25)
 Block 2: Conv2D(64) × 2 → BatchNorm → MaxPool(2×2) → Dropout(0.25)
 Block 3: Conv2D(128) × 2 → BatchNorm → MaxPool(2×2) → Dropout(0.25)
@@ -59,39 +80,38 @@ Head:    Flatten → Dense(256) → BatchNorm → Dropout(0.5) → Dense(10, sof
 ```
 
 **Design rationale:**
-- Progressive filter increase captures increasingly complex features
-- BatchNormalization stabilizes training
-- Dropout at every block provides strong regularization
-- `padding='same'` preserves spatial dimensions within blocks
+- Progressive filter increase captures increasingly complex features.
+- BatchNormalization stabilizes training.
+- Dropout at every block provides strong regularization.
+- `padding='same'` preserves spatial dimensions within blocks.
 
-### 3.2 MobileNetV2 Transfer Learning
+### 3.2 MobileNetV2 and ResNet50 Transfer Learning
+*(Reference: `3. Trained_Transfer_Learning_Colab_Models.ipynb`)*
 
-```
-Input(32×32×3) → UpSampling2D(3×) → MobileNetV2(frozen, ImageNet weights)
+While my Custom CNN performed well, I wanted to leverage state-of-the-art Transfer Learning models pre-trained on the massive ImageNet dataset. I selected MobileNetV2 (for raw efficiency) and ResNet50 (for extreme depth).
+
+```text
+Input(32×32×3) → UpSampling2D(3×) → Transfer Model (frozen, ImageNet weights)
 → GlobalAveragePooling2D → Dense(256) → Dropout(0.5) → Dense(10, softmax)
 ```
 
-**Why MobileNetV2?**
-- **Efficient**: ~3.4M parameters — lightweight enough for CPU training
-- **Proven**: Excellent ImageNet accuracy despite small size
-- **Practical**: Faster to train than VGG16 (~138M params) or ResNet50 (~25M params)
-- **Upscaling**: 32×32 images are upscaled to 96×96 via UpSampling2D to meet MobileNetV2's minimum input requirements
-
-> **📝 Note on Challenges Encountered - Model Selection:** 
-> I initially evaluated deeper transfer learning models like ResNet50 alongside MobileNetV2. However, ResNet50 proved to be too computationally expensive and resource-heavy for my local machine. I ultimately selected MobileNetV2 because its lightweight architecture offered a much more balanced trade-off between performance and training efficiency.
+**Why MobileNetV2 and ResNet50?**
+- **MobileNetV2**: ~3.4M parameters — efficient and fast.
+- **ResNet50**: Deeper architecture capable of extracting more highly-complex patterns.
+- **Upscaling Strategy**: Because ImageNet models natively require 224x224 (or at least 96x96) inputs, I had to implement an `UpSampling2D(3×)` layer at the start of my architectures to scale my tiny 32×32 CIFAR-10 images to 96×96 before passing them through the pretrained layers.
 
 **Fine-tuning strategy:**
-1. Phase 1: Train only the classification head (base frozen, lr=0.001)
-2. Phase 2: Unfreeze top 20 layers of MobileNetV2, retrain with lr=0.0001
+1. **Phase 1:** Train only the classification head (base frozen, lr=0.001)
+2. **Phase 2:** Unfreeze top layers and retrain the full model at a reduced learning rate (lr=0.0001)
 
 ---
 
-## 4. Training Configuration
+## 4. Training Configuration & Execution
 
 | Parameter         | Custom CNN | Transfer Learning |
 |:------------------|:-----------|:------------------|
 | Optimizer         | Adam       | Adam              |
-| Initial LR        | 0.001      | 0.001 → 0.0001   |
+| Initial LR        | 0.001      | 0.001 → 0.0001    |
 | Batch size        | 64         | 64                |
 | Max epochs        | 100        | 50 + 30           |
 | Early stopping    | patience=10| patience=10/8     |
@@ -100,169 +120,196 @@ Input(32×32×3) → UpSampling2D(3×) → MobileNetV2(frozen, ImageNet weights)
 
 ---
 
-## 5. Results
+## 5. Results (Metrics, Curves, Confusion Matrices)
 
 ### 5.1 Metrics Summary
 
-| Metric     | Custom CNN | MobileNetV2 TL |
-|:-----------|:-----------|:---------------|
-| Accuracy   | 0.8530 (85.30%) | 0.8340 (83.40%) |
-| Precision  | 0.8556          | 0.8353          |
-| Recall     | 0.8530          | 0.8340          |
-| F1-Score   | 0.8512          | 0.8339          |
+| Metric     | Custom CNN | MobileNetV2 TL | ResNet50 TL |
+|:-----------|:-----------|:---------------|:------------|
+| Accuracy   | 0.8530 (85.30%) | 0.9179 (91.79%) | 0.9063 (90.63%) |
 
-> **Note:** Run both training scripts to populate these results. The JSON outputs in `outputs/` contain the exact numbers.
+### 5.2 Custom CNN Performance
 
-### 5.2 Training Curves
-- `outputs/custom_cnn_history.png` — Custom CNN accuracy and loss curves
-- `outputs/transfer_learning_history.png` — Transfer learning curves
+After training natively for up to 100 epochs, my Custom CNN reached a respectable **85.30%** accuracy. 
 
-### 5.3 Confusion Matrices
-- `outputs/custom_cnn_cm.png` — Custom CNN confusion matrix
-- `outputs/transfer_learning_cm.png` — Transfer learning confusion matrix
-- `outputs/model_comparison.png` — Side-by-side metrics comparison
+![Custom CNN History](outputs/custom_cnn_history.png)
+*Figure 3. Training and validation accuracy/loss curves for my Custom CNN, demonstrating steady learning curbed eventually by early stopping.*
+
+![Custom CNN Confusion Matrix](outputs/custom_cnn_cm.png)
+*Figure 4. Confusion matrix for my Custom CNN. Notice the difficulty in distinguishing between cats and dogs (error hotspots).*
+
+### 5.3 Transfer Learning Performance
+
+The transfer learning models successfully pushed past my CNN's ceiling, achieving higher raw accuracies on standardized test sets.
+
+![MobileNetV2 History](outputs/mobilenetv2_history.png)
+*Figure 5. The training history of MobileNetV2 shows the two phases of my strategy: the initial head-training phase, followed by a spike in accuracy when the top layers were unfrozen for fine-tuning.*
+
+![Transfer Learning Confusion Matrix](outputs/transfer_learning_cm.png)
+*Figure 6. The confusion matrix for MobileNetV2. While overall accuracy is higher, the cat vs. dog visual confusion remains a persistent problem even for advanced models.*
 
 ### 5.4 Per-Class Confusion Analysis
 
-Both confusion matrices reveal systematic error patterns driven by visual similarity at 32×32 resolution:
+Both confusion matrices reveal systematic error patterns driven by visual similarity at extreme low-resolution (32x32):
 
-| Confusion Pair | Custom CNN Errors | MobileNetV2 Errors | Explanation |
-|:---------------|:-----------------:|:-------------------:|:------------|
-| **cat ↔ dog** | 198 | 256 | Both are furry, four-legged animals that share similar color palettes and body proportions at low resolution |
-| **bird ↔ frog** | 87 | 32 | Small subjects against green/natural backgrounds; at 32×32, both reduce to small colored blobs |
-| **automobile ↔ truck** | 82 | 107 | Both are wheeled vehicles with similar boxy shapes; the main discriminator (size) is lost at low resolution |
-| **airplane ↔ ship** | 49 | 85 | Both frequently appear against blue backgrounds (sky vs. water), confusing color-based features |
-
-**Key observation:** The cat class is the hardest to classify for both models (~65% accuracy), while frog, truck, and ship consistently achieve >90% accuracy. This suggests the model relies heavily on distinctive color patterns (green for frog, blue/gray for ship) rather than fine-grained shape features.
+| Confusion Pair | Explanation |
+|:---------------|:------------|
+| **cat ↔ dog** | Both are furry, four-legged animals that share similar color palettes and body proportions at low resolution. |
+| **bird ↔ frog** | Small subjects against green/natural backgrounds; at 32×32, both reduce to small colored blobs. |
+| **automobile ↔ truck** | Both are wheeled vehicles with similar boxy shapes; the main discriminator (size) is lost at low resolution. |
+| **airplane ↔ ship** | Both frequently appear against blue backgrounds (sky vs. water), confusing color-based features. |
 
 See `outputs/misclassified_examples.png` for a visual sample of misclassifications.
 
 ---
 
-## 6. Best Model Selection
+## 6. Model Evaluation and Selection
 
-### 🏆 Winner: Custom CNN (85.3% accuracy)
+To truly understand which model I actually wanted to deploy to production, I explicitly tested them against seen and unseen data in varying conditions.
 
-I selected the Custom CNN as the final model for deployment for the following reasons:
+### 6.1 Evaluation: Easy vs Difficult Conditions
+*(Reference: `4.1 Model_Comparison_easy.ipynb` and `4.2 Model_Comparison_difficult.ipynb`)*
 
-1. **Accuracy Difference:** While it achieved a respectable test accuracy (85.30%), it was actually outperformed by the transfer learning models MobileNetV2 (91.79%) and ResNet50 (90.63%). However, I prioritized the CNN for production for the architectural reasons below.
-2. **Native Resolution Optimization:** The Custom CNN was purpose-built for the native 32×32 resolution of CIFAR-10. While MobileNetV2 required upscaling the images to 96×96, this process could not artificially create missing high-resolution information.
-3. **Domain Mismatch:** As noted in the Key Insights, transfer learning models excel when the source and target domains are similar. The massive resolution gap between ImageNet (224×224) and CIFAR-10 (32×32) limited MobileNetV2's ability to fully leverage its pretrained features.
-4. **Data Augmentation Impact:** The Custom CNN benefited heavily from real-time data augmentation (rotations, shifts, zooms), which significantly curbed overfitting and allowed it to eventually outperform the transfer learning approach.
+**Pros in Easy Conditions:**
+In standard conditions with clear, recognizable images, both MobileNetV2 and ResNet50 consistently outperformed my Custom CNN by roughly 5-6 percentage points in overall accuracy. They quickly identified obvious spatial structures. 
+
+![Model Comparison: MobileNetV2 vs CNN](outputs/model_comparison_mobilenetv2_cnn.png)
+*Figure 7. Model comparison demonstrating MobileNetV2's superiority over the Custom CNN in ideal conditions.*
+
+**Cons in Difficult Conditions:**
+However, when evaluating the models against a set of complex edge cases—images with varied lighting, unusual angles, or obscured subjects—structural weaknesses became apparent. I found that my transfer learning models sometimes confidently mispredicted classes. 
+
+### 6.2 Image Dimensionality Analysis
+
+The root of this issue lies in the image dimensions. The transfer learning models were fundamentally prepared for larger dimensioned images (224x224, from ImageNet). Because my source images were tiny 32x32 pixels, my decision was to artificially scale them up to 96x96 to satisfy the neural network inputs. 
+
+This arbitrary stretching process massively changed the *true* recognition capability of the model. Upscaling low-resolution pixels simply creates larger, blurred blocks of color; it does not magically create new high-fidelity textures. When confronted with heavily upscaled blobs under difficult lighting, the transfer models struggled to map their extremely complex, high-res ImageNet learned textures.
+
+Meanwhile, my Custom CNN occasionally performed far better at recognizing rough shapes in difficult lighting because it was never confused by artificial upscaling; it evaluated the 32x32 images natively as they were.
+
+### 6.3 🏆 Winner Selection: Custom CNN (85.3% accuracy)
+
+Despite the transfer learning models achieving mathematically higher raw accuracy (~91%), **I ultimately selected the Custom CNN as my final deployed model.**
+
+I chose the Custom CNN for the following reasons:
+1. **Domain Mismatch & Native Resolution Optimization:** The Custom CNN was painstakingly trained for a full 100 epochs, natively learning exactly what these low-resolution 32x32 structures look like. The transfer learning models excel when source and target domains are similar. The massive resolution gap between ImageNet (224×224) and CIFAR-10 (32×32) limited their ability to fully leverage pretrained features.
+2. **Reliability in Edge Cases:** By evaluating 32x32 images natively, the CNN avoids the overconfident mispredictions that transfer learning models make when misinterpreting artificially blurred upscaled images on difficult edge cases.
+3. **Data Augmentation Impact:** The Custom CNN benefited heavily from real-time data augmentation (rotations, shifts, zooms), which significantly curbed overfitting and strengthened generalization.
+
+---
 
 ## 7. Model Deployment
 
 The best model is deployed via a **Flask web application**:
 
-- **URL:** `http://localhost:5001`
-- **Port note:** Port 5001 is used instead of Flask's default 5000 because macOS Monterey (12+) reserves port 5000 for the AirPlay Receiver service
 - **Features:**
   - Drag-and-drop or click-to-upload interface
   - Supports single and multiple image uploads
   - Displays top-10 predictions with probability bars
   - API endpoint at `/api/predict` for programmatic access
-- **Preprocessing:** Uploaded images are resized according to the active model's requirements (32×32 or 96×96) and normalized to [0,1].
 
 > **📝 Note on Challenges Encountered - Deployment and Integration:**
-> 1. **Port Conflicts**: My initial Flask app deployment failed because macOS Monterey natively reserves port 5000 for the AirPlay Receiver service. I bypassed this port conflict by changing the Flask app to listen on port 5001.
-> 2. **MobileNetV2 Integration Error**: When integrating the `mobilenetv2_tl.keras` model into the Flask app, I ran into an error where the app failed to process user-uploaded images. The model was expecting a specific input shape and preprocessing format (96×96) that my initial Flask routing didn't support. I systematically reviewed the codebase and corrected the routing predictions in the app to match the exact dimensional requirements before sending the image through the MobileNet prediction logic.
+> 1. **Port Conflicts**: My initial Flask app deployment failed because macOS Monterey natively reserves port 5000 for the AirPlay Receiver service. I bypassed this port conflict by changing the Flask app to listen on port 5001 (`http://localhost:5001`).
 
 ---
 
-## 8. Key Insights
+## 8. Bias & Limitations
 
-1. **Data augmentation significantly reduces overfitting** for the custom CNN, allowing it to train longer before early stopping triggers
-2. **Transfer learning with frozen base layers** converges faster but doesn't always outperform custom architectures — especially when the source domain (ImageNet, 224×224) differs significantly from the target (CIFAR-10, 32×32)
-3. **Fine-tuning** the top layers of MobileNetV2 with a reduced learning rate provides an additional accuracy boost but cannot fully overcome the resolution mismatch
-4. **Confusion matrix analysis** reveals that visually similar classes (cat/dog, automobile/truck) are the most commonly confused pairs — see Section 5.4
-5. **Batch normalization** between convolutional layers stabilizes training and allows higher learning rates
+When working with CIFAR-10, it's crucial to acknowledge the dataset's inherent biases:
 
-## 9. Bias & Limitations
-
-### 9.1 Dataset Representation Bias (Geographic/Cultural)
+### 8.1 Dataset Representation Bias (Geographic/Cultural)
 
 CIFAR-10 was collected from internet sources, predominantly Western/English-language websites. This introduces geographic bias in how each class is represented:
 
 | Class | Bias Example |
 |:------|:-------------|
-| **Automobile** | Mostly American/European car designs — the model may struggle with tuk-tuks, rickshaws, or vehicle types common in Asia and Africa |
+| **Automobile** | Mostly American/European car designs — the model may struggle with tuk-tuks, rickshaws, or vehicle types common in Asia and Africa. |
 | **Truck** | Predominantly modern pickup and delivery trucks — would it recognize flatbed trucks from rural areas? |
-| **Ship** | Mostly large vessels in open water — canoes, kayaks, or fishing boats from other cultures are underrepresented |
-| **Horse** | Photographed primarily in Western contexts (ranches, paddocks) — horses in different cultural settings may confuse the model |
-| **Bird** | Heavily weighted toward North American bird species — tropical or exotic birds are underrepresented |
+| **Ship** | Mostly large vessels in open water — canoes, kayaks, or fishing boats from other cultures are underrepresented. |
+| **Horse** | Photographed primarily in Western contexts (ranches, paddocks) — horses in different cultural settings may confuse the model. |
+| **Bird** | Heavily weighted toward North American bird species — tropical or exotic birds are underrepresented. |
 
-### 9.2 Why This Matters
+### 8.2 Why This Matters
 
-1. **No geographic diversity audit**: The model learned to classify "an automobile as seen by English-speaking internet users in North America" — not a universal definition
-2. **Background/context bias**: Objects were photographed in typical contexts (planes in blue sky, ships in water). An airplane on a tarmac or a ship in dry dock would likely be harder to classify
-3. **Color/lighting bias**: Most photos were taken in daylight. Night images or unusual lighting conditions may significantly degrade performance
-4. **Resolution bias**: All images are compressed to 32×32, which means the model relies heavily on **color patterns and rough shapes** rather than fine details — this is itself a form of information loss bias
+1. **No geographic diversity audit**: The model learned to classify "an automobile as seen by English-speaking internet users in North America" — not a universal definition.
+2. **Background/context bias**: Objects were photographed in typical contexts (planes in blue sky, ships in water). An airplane on a tarmac or a ship in dry dock would likely be harder to classify.
+3. **Resolution bias**: All images are compressed to 32×32, which means the model relies heavily on **color patterns and rough shapes** rather than fine details — this is itself a form of information loss bias.
+4. **Open-set recognition**: The model has no mechanism for "none of the above" — if I pass it an image of an apple, it is mathematically forced to confidently classify it as one of the 10 learned classes.
 
-### 9.3 Other Limitations
+---
 
-- **Artificial class balance**: CIFAR-10 is perfectly balanced (6,000 per class), which is unrealistic — real-world data is almost never balanced
-- **Open-set recognition**: The model has no concept of "none of the above" — uploading an image of a banana will still produce a confident prediction for one of the 10 classes
-- **Temporal bias**: CIFAR-10 images are from a specific time period. Modern cars, ships, and trucks look different than those from when the dataset was compiled
-- **No cross-validation**: Results are based on a single train/validation/test split, which could introduce variance
+## 9. Key Insights
+
+1. **Data augmentation significantly reduces overfitting** for the Custom CNN, allowing it to train longer before early stopping triggers.
+2. **Transfer learning with frozen base layers** converges faster but doesn't always outperform custom architectures—especially when the source domain (ImageNet, 224×224) differs significantly from the target representation (CIFAR-10, 32×32).
+3. At 32x32 resolution, **shape and color dominate texture.** Small green pixels are predicted as frogs and blue masses as ships, leading to amusing but logical errors (e.g., misclassifying an airplane against a blue sky as a ship).
+4. **Batch normalization** between convolutional layers stabilizes training, allowing for a progressively structured feature map learning experience.
 
 ---
 
 ## 10. Folder Structure
 
 ```
-project-1-deep-learning-image-classification-with-cnn/
+Cifar10_Image_Classification_project
 ├── README.md                           ← Project brief
 ├── requirements.txt                    ← Dependencies (pinned versions)
 ├── Dockerfile                          ← Docker container config
-├── .gitignore                          ← Git ignore rules
-├── Report/                             ← Documentation & presentation
-│   ├── REPORT.md                       ← This report
-│   ├── CIFAR10_Image_Classification_CNN.ipynb       ← Full notebook
-│   └── CIFAR10_Image_Classification_CNN_Presentation.ipynb  ← Slide deck
+├── Report.md                           ← THIS current master report
 ├── src/                                ← Source modules
+│   ├── __init__.py
 │   ├── data_loader.py
+│   ├── evaluate.py
 │   ├── model_builder.py
-│   ├── train.py
-│   └── evaluate.py
-├── notebooks/                          ← Executable pipeline scripts
-│   ├── 01_data_exploration.py
-│   ├── 02_custom_cnn.py
-│   ├── 03_transfer_learning_cpu.py     ← CPU-optimized (pre-resize with cv2)
-│   ├── 03_transfer_learning_gpu.py     ← GPU version (UpSampling2D in graph)
-│   ├── 04_model_comparison.py          ← Compare both models
-│   ├── 05_deploy.py                    ← Launch Flask app (port 5001)
-│   └── 06_misclassifications.py        ← Generate misclassification examples
+│   └── train.py
+├── notebooks_knowledge&presentation/   ← Notebooks, docs & presentation materials
+│   ├── jupyter notebooks/              ← Executable pipeline Jupyter notebooks
+│   │   ├── 1. CIFAR10_Image_Classification_CNN.ipynb
+│   │   ├── 2. CIFAR10_Image_Classification_CNN_lower Ephocs to analyce.ipynb
+│   │   ├── 3. Trained_Transfer_Learning_Colab_Models.ipynb
+│   │   ├── 4.1 Model_Comparison_easy.ipynb
+│   │   └── 4.2 Model_Comparison_difficult.ipynb
+│   ├── Ppt.Slices/                     ← Presentation slide images
+│   └── Research/                       ← Extra documentation and learning materials
 ├── app/                                ← Flask web application
 │   ├── app.py
 │   ├── templates/index.html
 │   └── static/style.css
 ├── models/                             ← Saved trained models (.keras)
-├── outputs/                            ← Plots, metrics, reports
-├── test_images/                        ← Sample images for testing the app
-└── Other documentation/                ← Learning guides & extra docs
+│   ├── custom_cnn.keras
+│   ├── mobilenetv2_tl.keras
+│   └── resnet50_tl.keras
+├── outputs/                            ← Plots, metrics, and report images
+└── test_images/                        ← Sample images for testing the app
+    ├── resized /
+    ├── test_CNN/
+    └── test_MobileNetV2/
 ```
 
 ---
 
-## 10. How to Run
+## 11. How to Run
 
-```bash
-# 1. Install dependencies
-conda activate ironhack.nn
+To explore my process, it is recommended to traverse the Jupyter Notebooks sequentially:
 
-# 2. Explore the data
-python notebooks/01_data_exploration.py
+1. `notebooks_knowledge&presentation/jupyter notebooks/1. CIFAR10_Image_Classification_CNN.ipynb`
+2. `notebooks_knowledge&presentation/jupyter notebooks/3. Trained_Transfer_Learning_Colab_Models.ipynb`
+   **(Note: This notebook MUST be launched and executed within Google Colab due to the extreme GPU memory requirements of Transfer Learning and the second part into the local machine.)**
+3. `notebooks_knowledge&presentation/jupyter notebooks/4.1 Model_Comparison_easy.ipynb`
+4. `notebooks_knowledge&presentation/jupyter notebooks/4.2 Model_Comparison_difficult.ipynb`
 
-# 3. Train the custom CNN
-python notebooks/02_custom_cnn.py
+**Note on Git:** Due to the massive architectural size of the ResNet50 model, `resnet50_tl.keras` has been added to the `.gitignore` file, as it comfortably exceeds the file size limit permitted by the free version of GitHub.
 
-# 4. Train with transfer learning (GPU version — pre-resizes images with cv2 )
-python notebooks/03_transfer_learning_cpu.py
+---
 
-# 5. Compare both models
-python notebooks/04_model_comparison.py
+## 12. Hugging Face Deployment
 
-# 6. Launch the Flask app (port 5001 — macOS reserves 5000 for AirPlay)
-python notebooks/05_deploy.py
-# → Open http://localhost:5001
-```
+The final deployed application is also hosted on Hugging Face Spaces using Docker.
+
+**Important Deployment Notes:**
+*   **Port Specifications:** While the local Flask application runs on Port 5001 (to bypass macOS Monterey AirPlay conflicts), the Docker container mapped within Hugging Face must adhere to its own internal exposed port architecture (usually Port 7860/8080 depending on the HF space configuration).
+*   **Memory Errors (MobileNet VS CNN):** The application originally attempted to load *both* the Custom CNN and the MobileNetV2 model into memory simultaneously for dynamic switching. On the free Hugging Face tier, running two loaded `.keras` models simultaneously caused brutal out-of-memory errors that crashed the app.
+*   **The Fix:** To solve this application freeze on Hugging Face, the MobileNetV2 model loading architecture logic must be commented out prior to pushing to hugging face. This is executed by explicitly commenting out line 36 in `app/app.py`:
+    ```python
+    # TRANSFER_MODEL_PATH = os.path.join(PROJECT_ROOT, 'models', 'mobilenetv2_tl.keras')
+    ```
+    This ensures only the chosen lightweight Custom CNN boots, allowing the interface to respond correctly.
