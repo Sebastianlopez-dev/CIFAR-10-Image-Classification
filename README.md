@@ -1,5 +1,5 @@
 ---
-title: "End-to-End Deep Learning: Image Classification Architecture and Flask Integration"
+title: "End-to-End Deep Learning: Image Classification Architecture (with-TensorFlow-and-Keras) and Flask Integration"
 emoji: 🌖
 colorFrom: yellow
 colorTo: gray
@@ -9,7 +9,7 @@ license: mit
 short_description: An end-to-end computer vision project featuring custom CNN architectures and professional Flask deployment.
 ---
 
-# 📊 End-to-End Deep Learning: Image Classification Architecture and Flask Integration
+# 📊 End-to-End Deep Learning: Image Classification Architecture (with-TensorFlow-and-Keras) and Flask Integration
 
 **Author:** Sebastian Lopez  
 **Environment:** Python 3.10 | TensorFlow 2.18.1 | Keras 3.6.0  
