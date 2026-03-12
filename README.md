@@ -97,4 +97,4 @@ A critical part of this project was auditing the **Geographic and Cultural bias*
 3. **Report**: Detailed analysis is available in the full [`Report.md`](./Report.md).
 
 ---
-*Developed during Ironhack's Data Analytics Bootcamp - 2026*
+*Developed during Ironhack's IA engineering Bootcamp - 2026*
